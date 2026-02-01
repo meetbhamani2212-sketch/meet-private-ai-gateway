@@ -1,0 +1,16 @@
+# Terraform generated files
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfplan
+terraform/crash.log
+
+# Environment variables / secrets
+.env
+
+# Logs
+*.log
+
+# OS noise
+.DS_Store
+Thumbs.db
