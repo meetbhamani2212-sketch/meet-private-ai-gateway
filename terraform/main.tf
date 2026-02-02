@@ -5,6 +5,7 @@ data "aws_availability_zones" "available" {
 # --------------------------
 # Networking: VPC + Subnets
 # --------------------------
+
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -50,6 +51,7 @@ resource "aws_subnet" "private" {
 # --------------------------
 # Routing
 # --------------------------
+
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.this.id
 
@@ -80,6 +82,31 @@ resource "aws_route_table" "private" {
 resource "aws_route_table_association" "private_assoc" {
   subnet_id      = aws_subnet.private.id
   route_table_id = aws_route_table.private.id
+}
+
+resource "aws_eip" "nat" {
+  domain = "vpc"
+
+  tags = {
+    Name = "${var.project_name}-nat-eip"
+  }
+}
+
+resource "aws_nat_gateway" "this" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public.id
+
+  tags = {
+    Name = "${var.project_name}-nat-gw"
+  }
+
+  depends_on = [aws_internet_gateway.this]
+}
+
+resource "aws_route" "private_internet_via_nat" {
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.this.id
 }
 
 # --------------------------
@@ -149,3 +176,136 @@ resource "aws_security_group" "service" {
   }
 }
 
+# ------------------------------
+# IAM Roles & Instance Profiles
+# ------------------------------
+
+data "aws_iam_policy_document" "ec2_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "router_role" {
+  name               = "${var.project_name}-router-role"
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "router_ssm" {
+  role       = aws_iam_role.router_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "router_profile" {
+  name = "${var.project_name}-router-profile"
+  role = aws_iam_role.router_role.name
+}
+
+resource "aws_iam_role" "service_role" {
+  name               = "${var.project_name}-service-role"
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "service_ssm" {
+  role       = aws_iam_role.service_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+# Bedrock permissions
+data "aws_iam_policy_document" "bedrock_invoke" {
+  statement {
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream"
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "bedrock_invoke" {
+  name   = "${var.project_name}-bedrock-invoke"
+  policy = data.aws_iam_policy_document.bedrock_invoke.json
+}
+
+resource "aws_iam_role_policy_attachment" "service_bedrock" {
+  role       = aws_iam_role.service_role.name
+  policy_arn = aws_iam_policy.bedrock_invoke.arn
+}
+
+resource "aws_iam_instance_profile" "service_profile" {
+  name = "${var.project_name}-service-profile"
+  role = aws_iam_role.service_role.name
+}
+
+# --------------------------------------
+# Tailscale resources (ACLs, auth keys)
+# --------------------------------------
+
+resource "tailscale_acl" "this" {
+  acl = file("${path.module}/../acl/policy.hujson")
+}
+
+resource "tailscale_tailnet_key" "router" {
+  reusable      = false
+  ephemeral     = true
+  preauthorized = true
+  expiry        = 3600
+
+  tags = ["tag:subnet-router"]
+
+  depends_on = [tailscale_acl.this]
+}
+
+# ---------------------------------------------------
+# EC2 instances (Router Instance + Service Instance)
+# ---------------------------------------------------
+
+data "aws_ami" "al2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+}
+
+# Router EC2 Instance:
+resource "aws_instance" "router" {
+  ami                    = data.aws_ami.al2023.id
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.router.id]
+  iam_instance_profile   = aws_iam_instance_profile.router_profile.name
+
+  user_data = templatefile("${path.module}/userdata/router.sh", {
+    TS_AUTHKEY     = tailscale_tailnet_key.router.key
+    ADVERTISE_CIDR = var.private_subnet_cidr
+    HOSTNAME       = "${var.project_name}-subnet-router"
+  })
+
+  tags = {
+    Name = "${var.project_name}-tailscale-subnet-router"
+    Role = "subnet-router"
+  }
+}
+
+# Service EC2 Instance:
+resource "aws_instance" "service" {
+  ami                    = data.aws_ami.al2023.id
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.private.id
+  vpc_security_group_ids = [aws_security_group.service.id]
+  iam_instance_profile   = aws_iam_instance_profile.service_profile.name
+
+  user_data = file("${path.module}/userdata/service.sh")
+
+  tags = {
+    Name = "${var.project_name}-private-api-service"
+    Role = "private-service"
+  }
+}

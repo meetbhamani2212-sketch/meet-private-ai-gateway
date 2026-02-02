@@ -1,0 +1,8 @@
+{
+  "tagOwners": {
+    "tag:subnet-router": ["autogroup:admin"]
+  },
+  "acls": [
+    { "action": "accept", "src": ["autogroup:admin"], "dst": ["*:*"] }
+  ]
+}
