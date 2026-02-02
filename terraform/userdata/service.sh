@@ -4,8 +4,8 @@ set -euo pipefail
 dnf -y update
 dnf -y install python3 python3-pip
 
-# App directory
 mkdir -p /opt/private-api
+
 cat > /opt/private-api/app.py << 'PY'
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -19,7 +19,6 @@ class AskRequest(BaseModel):
 def health():
     return {"status": "ok"}
 
-# Bedrock will be wired later
 @app.post("/ask")
 def ask(req: AskRequest):
     return {
@@ -48,5 +47,5 @@ WantedBy=multi-user.target
 SVC
 
 systemctl daemon-reload
-systemctl enable private-api
-systemctl start private-api
+systemctl enable private-api.service
+systemctl restart private-api.service

@@ -5,17 +5,17 @@
 
 ## Overview
 
-This repository contains a **reproducible proof-of-concept** that is being built incrementally to demonstrate how **Tailscale subnet routing** can securely provide access to a **private internal service** — in this case, an **AI-powered API designed to call Amazon Bedrock for LLM responses** - without exposing that service to the public internet.
+This repository contains a **reproducible proof-of-concept** that is being built incrementally to demonstrate how **Tailscale subnet routing** can securely provide access to a **private internal service** - in this case, an **AI-powered API designed to call Amazon Bedrock for LLM responses** - without exposing that service to the public internet.
 
 The solution mirrors a real-world commercial customer scenario: teams want to safely access internal tools such as APIs, admin services, AI-powered services or AI assistants from anywhere, while avoiding traditional VPN complexity and inbound network exposure.
 
-In this design, ****Tailscale** acts as the secure access layer, **AWS** hosts the private application environment, and **Terraform provides repeatable Infrastructure as Code (IaC) automation** for both Taiscale and AWS resources.
+In this design, **Tailscale** acts as the secure access layer, **AWS** hosts the private application environment, and **Terraform provides repeatable Infrastructure as Code (IaC) automation** for both Taiscale and AWS resources.
 
 ---
 
 ## Current Status
 
-The **networking, security, and compute foundation is now in place.**
+The **networking, security, compute, and routing foundation is now in place.**
 
 At this stage, the project includes:
 
@@ -31,8 +31,9 @@ At this stage, the project includes:
   - The private service only accepts traffic from the subnet router on port `8000`  
   - No inbound SSH is enabled by default  
 
-The subnet router is now running and advertising the private CIDR to the Tailnet.  
-End-to-end Tailnet access will be validated in the next stage.
+The subnet router is running, advertising the private CIDR to the Tailnet, and the route has been approved in the Tailscale admin console.
+
+End-to-end access to the private service via Tailscale has now been validated.
 
 ---
 
@@ -43,11 +44,11 @@ End-to-end Tailnet access will be validated in the next stage.
     - Hosts the Tailscale subnet router EC2 instance
     - Provides outbound internet access for control-plane connectivity
   - **Private Subnet**
-    - Hosts the private FastAPI service
+    - Hosts the private FastAPI service on EC2 instance
     - Has no public IPs and is not directly reachable from the internet  
 
 - **Tailscale**
-  - Subnet router will advertise the private subnet CIDR to the tailnet
+  - The subnet router advertises the private subnet CIDR to the Tailnet  
   - Access will be governed by identity, tags, and ACLs (managed as code)
 
 - **Private Service**
@@ -82,7 +83,7 @@ All infrastructure is defined using **Terraform**.
 
 - AWS resources are provisioned declaratively
 - Provider versions are locked via `.terraform.lock.hcl`
-- The configuration is reproducible and safe to tear down using `terraform destroy`
+- The configuration is reproducible and safe to tear down using `terraform apply` and `terraform destroy` respectively
 
 **Accurate to current state:** Terraform is **already managing Tailscale resources**, including:  
 - Tailscale ACL configuration (policy as code)  
@@ -111,16 +112,22 @@ Detailed deployment and validation instructions will be added later as each func
   ```json
   {"status":"ok"}
 
-**Tailscale validation (in progress)**
+**Tailscale validation (completed)**
 - Subnet router appears in the Tailscale admin console
-- The private CIDR is successfully advertised to the Tailnet
+- The private CIDR (`10.0.2.0/24`) is advertised **and approved** in the Tailnet
+- End-to-end Tailnet validation completed
+- From a client device on the Tailnet, the private service was successfully accessed using its private IP:
+```bash
+  curl http://<service-private-ip>:8000/health
+```
+  **Response**:
+```json
+  {"status":"ok"}
+```
+- The service remains unreachable from the public internet (no public IP and restricted security group)
 
 **Next validation activities**:
-- Approving the advertised subnet route in the Tailscale admin console
-- Accessing the private service via Tailnet routing from a client device
-- Verifying that the service is inaccessible from the public internet
-- Integrating POST /ask with Amazon Bedrock to return real LLM responses
-
+- Integrating POST `/ask` with Amazon Bedrock to return real LLM responses
 ---
 
 ## Tools & Technologies
