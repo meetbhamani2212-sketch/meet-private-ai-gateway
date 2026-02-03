@@ -227,13 +227,19 @@ data "aws_iam_policy_document" "bedrock_invoke" {
 }
 
 resource "aws_iam_policy" "bedrock_invoke" {
-  name   = "${var.project_name}-bedrock-invoke"
-  policy = data.aws_iam_policy_document.bedrock_invoke.json
+  name        = "${var.project_name}-bedrock-invoke"
+  description = "Allow private service to invoke Amazon Bedrock models"
+  policy      = data.aws_iam_policy_document.bedrock_invoke.json
 }
 
 resource "aws_iam_role_policy_attachment" "service_bedrock" {
   role       = aws_iam_role.service_role.name
   policy_arn = aws_iam_policy.bedrock_invoke.arn
+}
+
+resource "aws_iam_role_policy_attachment" "service_marketplace_full" {
+  role       = aws_iam_role.service_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSMarketplaceFullAccess"
 }
 
 resource "aws_iam_instance_profile" "service_profile" {
