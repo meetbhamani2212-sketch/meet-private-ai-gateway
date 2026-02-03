@@ -1,4 +1,10 @@
 {
+  "groups": {
+    "group:engineers": [
+      "meetbhamani2212-sketch@github"
+    ]
+  },
+
   "tagOwners": {
     "tag:subnet-router": ["autogroup:admin"]
   },
@@ -6,7 +12,7 @@
   "acls": [
     {
       "action": "accept",
-      "src": ["autogroup:admin"],
+      "src": ["group:engineers"],
       "dst": ["10.0.2.0/24:8000"]
     }
   ]
