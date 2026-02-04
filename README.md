@@ -3,6 +3,10 @@
 
 **Tailnet Name:** `meet-private-ai-gateway`
 
+**Demo Video walkthrough:** https://www.loom.com/share/d933de9f9e3f451bb38b32a51b9dd1b6
+
+A brief outline of what the demo video covers is also documented in the `/video` folder at the root of this repository.
+
 ---
 
 ## Table of Contents
