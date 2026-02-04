@@ -69,7 +69,7 @@ The solution mirrors **a real-world commercial customer scenario**: Teams want t
 
 ### Architecture Diagram
 
-Visual diagram for this project is located in the `diagram/` folder at the root of this repository:
+Visual diagram for this project is located in the `diagrams/` folder at the root of this repository:
 
 - **tailscale-aws-architecture-diagram.png** - overall system architecture  
 - **tailscale-security-controls.png** - network and identity security controls  
@@ -531,7 +531,7 @@ AI assistance (Claude) was used selectively for:
 - **Documentation structure**: Organizing documentation sections and improving clarity
 - **PowerShell scripting**: Syntax for the validation script and error handling patterns
 
-### What I Did Myself
+### What I Owned
 
 **All core architectural and security decisions were my own**, including:
 - Designing a VPC with clear separation between public and private subnets
