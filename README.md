@@ -72,6 +72,7 @@ The solution mirrors **a real-world commercial customer scenario**: Teams want t
 Visual diagram for this project is located in the `diagram/` folder at the root of this repository:
 
 - **tailscale-aws-architecture-diagram.png** - overall system architecture  
+- **tailscale-security-controls.png** - network and identity security controls  
 
 ### Tailscale
 
